@@ -12,8 +12,7 @@
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.data('lahanApp', () => ({
-                // UBAH JADI 'true' JIKA INGIN LANGSUNG IMPORT MENU UTAMA KE FIGMA
-                isLoggedIn: false, 
+                isLoggedIn: false, // Ubah jadi 'true' jika ingin langsung tembus ke Dashboard (untuk import Figma)
                 isRegistering: false,
                 username: '',
                 role: 'investor',
@@ -25,7 +24,7 @@
                 ],
                 selectedLand: null,
                 showFundModal: false, showAddLandModal: false, showUpdateModal: false,
-                newLandLoc: '', newLandSize: '', newLandFund: '', newLandDesc: '',
+                newLandLoc: '', newLandSize: '', newLandFund: '', newLandDesc: '', newLandPhoto: null, newLandDocs: null,
                 selectedCrop: 'c1', quantity: 100, updateText: '',
                 cropOptions: [
                     { id: 'c1', name: 'Jagung Manis', price: 15000 },
@@ -78,13 +77,17 @@
                     this.activeTab = 'my-investments';
                 },
                 handleAddLand() {
+                    if (!this.newLandPhoto || !this.newLandDocs) {
+                        alert("Mohon unggah foto lahan dan dokumen legalitas untuk keperluan verifikasi.");
+                        return;
+                    }
                     this.lands.push({
                         id: Date.now(), owner: this.username || 'Saya', phone: '6280000000000', location: this.newLandLoc, size: this.newLandSize, description: this.newLandDesc,
-                        image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3',
+                        image: URL.createObjectURL(this.newLandPhoto),
                         status: 'available', targetFund: parseInt(this.newLandFund), currentFund: 0, cropType: null, updates: []
                     });
                     this.showAddLandModal = false;
-                    this.newLandLoc = ''; this.newLandSize = ''; this.newLandFund = ''; this.newLandDesc = '';
+                    this.newLandLoc = ''; this.newLandSize = ''; this.newLandFund = ''; this.newLandDesc = ''; this.newLandPhoto = null; this.newLandDocs = null;
                 },
                 handleUpdateProgress() {
                     if (!this.updateText) return;
@@ -113,7 +116,7 @@
 
     <div class="w-full max-w-[430px] mx-auto bg-[#F8FAFC] min-h-[100dvh] relative shadow-2xl sm:border-x sm:border-slate-200 overflow-hidden flex flex-col">
 
-        <div x-show="!isLoggedIn" class="flex-1 flex flex-col justify-center px-8 py-12 bg-white animate-in fade-in duration-300">
+        <div x-show="!isLoggedIn" class="flex-1 flex flex-col justify-center px-8 py-12 bg-white animate-in fade-in duration-300 relative z-50">
             <div class="text-center mb-10">
                 <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 mx-auto mb-4">
                     <i data-lucide="leaf" class="w-8 h-8 text-white"></i>
@@ -443,10 +446,21 @@
                 <div class="relative w-full bg-white rounded-t-[2rem] shadow-2xl slide-up flex flex-col max-h-[95vh]">
                     <div class="w-full flex justify-center pt-3 pb-2"><div class="w-12 h-1.5 bg-slate-200 rounded-full"></div></div>
                     <div class="px-6 pb-4 border-b border-slate-100 flex justify-between items-center">
-                        <h3 class="text-xl font-black text-slate-800">Daftar Lahan Baru</h3>
+                        <div>
+                            <h3 class="text-xl font-black text-slate-800">Daftar Lahan Baru</h3>
+                            <p class="text-slate-500 text-xs font-medium mt-1">Buka penawaran publik.</p>
+                        </div>
                         <button @click="showAddLandModal = false" class="bg-slate-100 p-2 rounded-full text-slate-500"><i data-lucide="x" class="w-4 h-4"></i></button>
                     </div>
                     <div class="px-6 py-5 overflow-y-auto flex-1 custom-scrollbar">
+                        
+                        <div class="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-5">
+                            <div class="flex items-start gap-2">
+                                <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+                                <p class="text-[10px] text-amber-700/80 leading-relaxed font-bold">Harap siapkan dan unggah foto lahan asli serta bukti legalitas (SHM/Girik/Surat Sewa) untuk verifikasi KYC.</p>
+                            </div>
+                        </div>
+
                         <form id="addLandForm" @submit.prevent="handleAddLand" class="space-y-4">
                             <div class="grid grid-cols-2 gap-3">
                                 <div class="col-span-2">
@@ -454,7 +468,7 @@
                                     <input required x-model="newLandLoc" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-medium text-sm" placeholder="Cth: Sukabumi" />
                                 </div>
                                 <div class="col-span-1">
-                                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Luas</label>
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Luas Area</label>
                                     <input required x-model="newLandSize" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-medium text-sm" placeholder="1 Hektar" />
                                 </div>
                                 <div class="col-span-1">
@@ -462,9 +476,23 @@
                                     <input required x-model="newLandFund" type="number" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-medium text-sm" placeholder="5000000" />
                                 </div>
                             </div>
+                            
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Deskripsi Lahan</label>
                                 <textarea required x-model="newLandDesc" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-medium text-sm resize-none" placeholder="Ceritakan kondisi tanah..."></textarea>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3 pt-2">
+                                <div class="border-2 border-dashed border-slate-200 rounded-xl p-3 text-center relative hover:bg-slate-50 transition-colors">
+                                    <input type="file" class="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer" @change="newLandPhoto = $event.target.files[0]" accept="image/*" />
+                                    <i data-lucide="camera" class="w-5 h-5 text-emerald-500 mx-auto mb-1"></i>
+                                    <span class="text-[9px] font-bold text-slate-600 block truncate" x-text="newLandPhoto ? newLandPhoto.name : 'Foto Lahan'"></span>
+                                </div>
+                                <div class="border-2 border-dashed border-slate-200 rounded-xl p-3 text-center relative hover:bg-slate-50 transition-colors">
+                                    <input type="file" class="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer" @change="newLandDocs = $event.target.files[0]" accept=".pdf,.jpg,.png" />
+                                    <i data-lucide="file-text" class="w-5 h-5 text-indigo-500 mx-auto mb-1"></i>
+                                    <span class="text-[9px] font-bold text-slate-600 block truncate" x-text="newLandDocs ? newLandDocs.name : 'SHM/Sewa'"></span>
+                                </div>
                             </div>
                         </form>
                     </div>
