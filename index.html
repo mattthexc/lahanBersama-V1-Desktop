@@ -10,6 +10,7 @@
         document.addEventListener('alpine:init', () => {
             Alpine.data('lahanApp', () => ({
                 isLoggedIn: false, isRegistering: false, username: '', role: 'investor', activeTab: 'marketplace', hasSeenPopup: false,
+                isEditingDesc: false, editDescText: '',
                 lands: [
                     { id: 1, owner: 'Bapak Budi', phone: '6281234567890', location: 'Cisarua, Bogor', size: '500 m²', description: 'Lahan subur bekas kebun sayur, cocok untuk tanaman palawija atau buah-buahan cepat panen. Pengairan lancar dari sungai terdekat.', image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', status: 'available', targetFund: 5000000, currentFund: 0, updates: [] },
                     { id: 2, owner: 'Ibu Siti', phone: '6289876543210', location: 'Lembang, Bandung', size: '1000 m²', description: 'Lahan dataran tinggi, sangat cocok untuk sayuran daun dan tomat. Udara sejuk dan tanah gembur. Akses jalan sudah aspal.', image: 'https://images.unsplash.com/photo-1592982537447-6f2a6a0a38b5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', status: 'funded', targetFund: 10000000, currentFund: 10000000, cropType: 'Tomat Cherry (800 bibit)', updates: [{ date: '2026-03-20', text: 'Benih tomat cherry sudah disemai di polybag kecil dan diletakkan di dalam green house mini.'}] },
@@ -49,7 +50,7 @@
                         this.lands[landIndex].updates.unshift({ date: new Date().toISOString().split('T')[0], text: 'Pendanaan berhasil disalurkan. Menunggu persiapan tanam dari petani.' });
                         this.selectedLand = null; this.activeTab = 'my-investments';
                     } else if (this.paymentContext === 'fertilizer') {
-                        const landIndex = this.lands.findIndex(l => l.id === 2); // ID Ibu Siti
+                        const landIndex = this.lands.findIndex(l => l.id === 2); 
                         this.lands[landIndex].updates.unshift({ date: new Date().toISOString().split('T')[0], text: 'Pemupukan NPK tambahan telah berhasil dilakukan berkat dana investor.' });
                         this.activeTab = 'my-investments';
                     }
@@ -63,13 +64,26 @@
                     });
                     this.showAddLandModal = false; this.newLandLoc = ''; this.newLandSize = ''; this.newLandFund = ''; this.newLandDesc = ''; this.newLandPhoto = null; this.newLandDocs = null;
                 },
+                openUpdateModalFast(land) { this.selectedLand = land; this.showUpdateModal = true; },
                 handleUpdateProgress() {
                     if (!this.updateText) return;
                     const landIndex = this.lands.findIndex(l => l.id === this.selectedLand.id);
                     this.lands[landIndex].updates.unshift({ date: new Date().toISOString().split('T')[0], text: this.updateText });
                     this.showUpdateModal = false; this.updateText = '';
                 },
-                openUpdateModalFast(land) { this.selectedLand = land; this.showUpdateModal = true; }
+                startEditDesc() {
+                    this.editDescText = this.selectedLand.description;
+                    this.isEditingDesc = true;
+                    setTimeout(() => { if(window.lucide) lucide.createIcons(); }, 50);
+                },
+                saveDesc() {
+                    const landIndex = this.lands.findIndex(l => l.id === this.selectedLand.id);
+                    if (landIndex !== -1) {
+                        this.lands[landIndex].description = this.editDescText;
+                        this.selectedLand.description = this.editDescText;
+                    }
+                    this.isEditingDesc = false;
+                }
             }));
         });
     </script>
@@ -141,10 +155,6 @@
                                 <div class="mt-auto">
                                     <div class="flex justify-between items-end mb-2"><div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Dana</p><span class="text-lg font-extrabold text-slate-800" x-text="formatRupiah(land.targetFund)"></span></div><div class="text-right"><span class="text-sm font-bold text-emerald-600" x-text="`${Math.round((land.currentFund / land.targetFund) * 100)}%`"></span></div></div>
                                     <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden"><div class="bg-gradient-to-r from-emerald-400 to-teal-500 h-full rounded-full transition-all duration-1000 ease-out relative" :style="`width: ${(land.currentFund / land.targetFund) * 100}%`"></div></div>
-                                    
-                                    <template x-if="role === 'landowner' && land.status === 'funded'">
-                                        <button @click.stop="openUpdateModalFast(land)" class="w-full mt-4 bg-emerald-50 text-emerald-700 py-3 rounded-xl font-bold text-sm hover:bg-emerald-100 transition-colors flex justify-center items-center gap-2 border border-emerald-200/50"><i data-lucide="camera" class="w-4 h-4"></i> Lapor Progres</button>
-                                    </template>
                                 </div>
                             </div>
                         </div>
@@ -168,14 +178,41 @@
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div class="lg:col-span-2 space-y-8">
+                        
                         <section class="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
-                            <h3 class="text-xl font-extrabold text-slate-800 mb-4 flex items-center gap-3"><div class="bg-slate-100 p-2 rounded-xl text-slate-600"><i data-lucide="info" class="w-5 h-5"></i></div> Rangkuman Lahan</h3>
-                            <p class="text-slate-600 leading-relaxed text-lg" x-text="selectedLand?.description"></p>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-xl font-extrabold text-slate-800 flex items-center gap-3">
+                                    <div class="bg-slate-100 p-2 rounded-xl text-slate-600"><i data-lucide="info" class="w-5 h-5"></i></div> Detail Lahan
+                                </h3>
+                                <template x-if="role === 'landowner' && ['Saya', username, 'Bapak Budi'].includes(selectedLand?.owner)">
+                                    <button @click="startEditDesc" x-show="!isEditingDesc" class="text-emerald-600 bg-emerald-50 hover:bg-emerald-100 p-2 rounded-xl transition-colors flex items-center gap-2 text-sm font-bold border border-emerald-200/50">
+                                        <i data-lucide="edit-3" class="w-4 h-4"></i> Edit
+                                    </button>
+                                </template>
+                            </div>
+                            
+                            <div x-show="!isEditingDesc">
+                                <p class="text-slate-600 leading-relaxed text-lg" x-text="selectedLand?.description"></p>
+                            </div>
+                            <div x-show="isEditingDesc" class="space-y-4 animate-in fade-in duration-200">
+                                <textarea x-model="editDescText" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium resize-none"></textarea>
+                                <div class="flex justify-end gap-3">
+                                    <button @click="isEditingDesc = false" class="px-5 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">Batal</button>
+                                    <button @click="saveDesc" class="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 transition-all">Simpan</button>
+                                </div>
+                            </div>
                         </section>
 
                         <section class="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
                             <div class="flex justify-between items-center mb-8">
-                                <h3 class="text-xl font-extrabold text-slate-800 flex items-center gap-3"><div class="bg-emerald-100 p-2 rounded-xl text-emerald-600"><i data-lucide="calendar" class="w-5 h-5"></i></div> Jurnal Proyek</h3>
+                                <h3 class="text-xl font-extrabold text-slate-800 flex items-center gap-3">
+                                    <div class="bg-emerald-100 p-2 rounded-xl text-emerald-600"><i data-lucide="calendar" class="w-5 h-5"></i></div> Jurnal Proyek
+                                </h3>
+                                <template x-if="role === 'landowner' && selectedLand?.status === 'funded' && ['Saya', username, 'Bapak Budi'].includes(selectedLand?.owner)">
+                                    <button @click="openUpdateModalFast(selectedLand)" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 py-2.5 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 border border-emerald-200/50">
+                                        <i data-lucide="plus-circle" class="w-4 h-4"></i> Tambah Jurnal
+                                    </button>
+                                </template>
                             </div>
                             <div class="space-y-8 relative before:absolute before:inset-0 before:ml-6 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
                                 <template x-for="(update, idx) in selectedLand?.updates" :key="idx">
@@ -222,93 +259,27 @@
         <div x-show="showPaymentModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
             <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl transform transition-all animate-in zoom-in-95 duration-300">
                 <div class="flex justify-between items-center mb-8"><h3 class="text-2xl font-black text-slate-800">Checkout</h3><button @click="showPaymentModal = false" class="bg-slate-100 p-2 rounded-full hover:bg-slate-200 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button></div>
-                <div class="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100 text-center">
-                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Total Pembayaran</p>
-                    <p class="text-4xl font-black text-emerald-600" x-text="formatRupiah(paymentAmount)"></p>
-                </div>
+                <div class="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100 text-center"><p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Total Pembayaran</p><p class="text-4xl font-black text-emerald-600" x-text="formatRupiah(paymentAmount)"></p></div>
                 <label class="block text-xs font-bold text-slate-500 uppercase mb-4">Metode Pembayaran</label>
                 <div class="space-y-4 mb-8">
-                    <label :class="paymentMethod === 'qris' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'" class="flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all hover:border-emerald-300">
-                        <input type="radio" x-model="paymentMethod" value="qris" class="hidden">
-                        <div class="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center text-pink-600 mr-4"><i data-lucide="qr-code" class="w-5 h-5"></i></div>
-                        <span class="font-bold text-slate-800 flex-1">QRIS (Otomatis)</span>
-                        <div :class="paymentMethod === 'qris' ? 'border-emerald-500' : 'border-slate-300'" class="w-5 h-5 rounded-full border-2 flex items-center justify-center"><div x-show="paymentMethod === 'qris'" class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div></div>
-                    </label>
-                    <label :class="paymentMethod === 'ewallet' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'" class="flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all hover:border-emerald-300">
-                        <input type="radio" x-model="paymentMethod" value="ewallet" class="hidden">
-                        <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 mr-4"><i data-lucide="smartphone" class="w-5 h-5"></i></div>
-                        <span class="font-bold text-slate-800 flex-1">E-Wallet (GoPay/DANA)</span>
-                        <div :class="paymentMethod === 'ewallet' ? 'border-emerald-500' : 'border-slate-300'" class="w-5 h-5 rounded-full border-2 flex items-center justify-center"><div x-show="paymentMethod === 'ewallet'" class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div></div>
-                    </label>
-                    <label :class="paymentMethod === 'va' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'" class="flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all hover:border-emerald-300">
-                        <input type="radio" x-model="paymentMethod" value="va" class="hidden">
-                        <div class="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600 mr-4"><i data-lucide="building" class="w-5 h-5"></i></div>
-                        <span class="font-bold text-slate-800 flex-1">Virtual Account</span>
-                        <div :class="paymentMethod === 'va' ? 'border-emerald-500' : 'border-slate-300'" class="w-5 h-5 rounded-full border-2 flex items-center justify-center"><div x-show="paymentMethod === 'va'" class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div></div>
-                    </label>
+                    <label :class="paymentMethod === 'qris' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'" class="flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all hover:border-emerald-300"><input type="radio" x-model="paymentMethod" value="qris" class="hidden"><div class="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center text-pink-600 mr-4"><i data-lucide="qr-code" class="w-5 h-5"></i></div><span class="font-bold text-slate-800 flex-1">QRIS (Otomatis)</span><div :class="paymentMethod === 'qris' ? 'border-emerald-500' : 'border-slate-300'" class="w-5 h-5 rounded-full border-2 flex items-center justify-center"><div x-show="paymentMethod === 'qris'" class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div></div></label>
+                    <label :class="paymentMethod === 'ewallet' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'" class="flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all hover:border-emerald-300"><input type="radio" x-model="paymentMethod" value="ewallet" class="hidden"><div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 mr-4"><i data-lucide="smartphone" class="w-5 h-5"></i></div><span class="font-bold text-slate-800 flex-1">E-Wallet (GoPay/DANA)</span><div :class="paymentMethod === 'ewallet' ? 'border-emerald-500' : 'border-slate-300'" class="w-5 h-5 rounded-full border-2 flex items-center justify-center"><div x-show="paymentMethod === 'ewallet'" class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div></div></label>
+                    <label :class="paymentMethod === 'va' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'" class="flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all hover:border-emerald-300"><input type="radio" x-model="paymentMethod" value="va" class="hidden"><div class="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600 mr-4"><i data-lucide="building" class="w-5 h-5"></i></div><span class="font-bold text-slate-800 flex-1">Virtual Account</span><div :class="paymentMethod === 'va' ? 'border-emerald-500' : 'border-slate-300'" class="w-5 h-5 rounded-full border-2 flex items-center justify-center"><div x-show="paymentMethod === 'va'" class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div></div></label>
                 </div>
                 <button @click="processPayment" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg hover:bg-slate-800 shadow-xl hover:-translate-y-0.5 transition-all">Selesaikan Pembayaran</button>
             </div>
         </div>
 
         <div x-show="showFundModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[90] p-4">
-            <div class="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden transform transition-all">
-                <div class="bg-slate-900 p-8 text-white relative overflow-hidden"><div class="absolute -right-4 -top-4 text-slate-800 opacity-50 rotate-12"><i data-lucide="sprout" class="w-32 h-32"></i></div><h3 class="text-2xl font-black relative z-10 mb-1">Inisiasi Pendanaan</h3></div>
-                <div class="p-8">
-                    <label class="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-4">Pilih Komoditas</label>
-                    <div class="space-y-3 mb-6 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
-                        <template x-for="crop in cropOptions" :key="crop.id">
-                            <label :class="selectedCrop === crop.id ? 'border-emerald-500 bg-emerald-50' : 'border-slate-100 hover:border-slate-300'" class="flex items-center p-4 rounded-2xl cursor-pointer transition-all border-2">
-                                <input type="radio" name="crop" :value="crop.id" x-model="selectedCrop" class="hidden" />
-                                <div :class="selectedCrop === crop.id ? 'border-emerald-500' : 'border-slate-300'" class="w-5 h-5 rounded-full border-2 flex items-center justify-center mr-4"><div x-show="selectedCrop === crop.id" class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div></div>
-                                <div class="flex-1"><div class="font-bold text-slate-800" x-text="crop.name"></div><div class="text-xs font-medium text-slate-500 mt-1 flex justify-between"><span x-text="`Yield: ${crop.yield}`"></span><span class="text-emerald-600 font-bold" x-text="`${formatRupiah(crop.price)} / bibit`"></span></div></div>
-                            </label>
-                        </template>
-                    </div>
-                    <template x-if="selectedCrop">
-                        <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-8">
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Jumlah Bibit</label>
-                            <input type="number" min="1" x-model="quantity" class="w-full border border-slate-200 bg-white rounded-xl p-4 outline-none mb-4 font-bold text-lg" />
-                        </div>
-                    </template>
-                    <div class="flex gap-4 mt-2">
-                        <button @click="showFundModal = false" class="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors">Batal</button>
-                        <button @click="openPayment('fund', calculateInvestment())" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-colors shadow-lg">Lanjut Bayar</button>
-                    </div>
-                </div>
-            </div>
+            <div class="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden transform transition-all"><div class="bg-slate-900 p-8 text-white relative overflow-hidden"><div class="absolute -right-4 -top-4 text-slate-800 opacity-50 rotate-12"><i data-lucide="sprout" class="w-32 h-32"></i></div><h3 class="text-2xl font-black relative z-10 mb-1">Inisiasi Pendanaan</h3></div><div class="p-8"><label class="block text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-4">Pilih Komoditas</label><div class="space-y-3 mb-6 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar"><template x-for="crop in cropOptions" :key="crop.id"><label :class="selectedCrop === crop.id ? 'border-emerald-500 bg-emerald-50' : 'border-slate-100 hover:border-slate-300'" class="flex items-center p-4 rounded-2xl cursor-pointer transition-all border-2"><input type="radio" name="crop" :value="crop.id" x-model="selectedCrop" class="hidden" /><div :class="selectedCrop === crop.id ? 'border-emerald-500' : 'border-slate-300'" class="w-5 h-5 rounded-full border-2 flex items-center justify-center mr-4"><div x-show="selectedCrop === crop.id" class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div></div><div class="flex-1"><div class="font-bold text-slate-800" x-text="crop.name"></div><div class="text-xs font-medium text-slate-500 mt-1 flex justify-between"><span x-text="`Yield: ${crop.yield}`"></span><span class="text-emerald-600 font-bold" x-text="`${formatRupiah(crop.price)} / bibit`"></span></div></div></label></template></div><template x-if="selectedCrop"><div class="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-8"><label class="block text-sm font-bold text-slate-700 mb-2">Jumlah Bibit</label><input type="number" min="1" x-model="quantity" class="w-full border border-slate-200 bg-white rounded-xl p-4 outline-none mb-4 font-bold text-lg" /></div></template><div class="flex gap-4 mt-2"><button @click="showFundModal = false" class="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors">Batal</button><button @click="openPayment('fund', calculateInvestment())" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-colors shadow-lg">Lanjut Bayar</button></div></div></div>
         </div>
 
         <div x-show="showAddLandModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-            <div class="bg-white rounded-[2.5rem] w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl p-8 custom-scrollbar">
-                <div class="flex justify-between items-start mb-6"><div><h3 class="text-2xl font-black text-slate-800 mb-1">Daftarkan Lahan</h3><p class="text-sm text-slate-500 font-medium">Buka peluang pendanaan baru.</p></div><div class="p-3 bg-slate-100 rounded-2xl text-slate-500"><i data-lucide="map-pin" class="w-6 h-6"></i></div></div>
-                <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-6"><div class="flex items-start gap-3"><i data-lucide="info" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i><div><h4 class="text-sm font-bold text-amber-800 mb-1">Syarat Verifikasi</h4><p class="text-xs text-amber-700/80 leading-relaxed font-medium">Siapkan foto lahan asli dan bukti legalitas (SHM/Girik) untuk keamanan investor.</p></div></div></div>
-                <form @submit.prevent="handleAddLand" class="space-y-5">
-                    <div class="grid grid-cols-2 gap-5">
-                        <div class="col-span-2 md:col-span-1"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Lokasi Lengkap</label><input required x-model="newLandLoc" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 outline-none font-medium" placeholder="Cth: Sukabumi" /></div>
-                        <div class="col-span-2 md:col-span-1"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Luas Area</label><input required x-model="newLandSize" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 outline-none font-medium" placeholder="Cth: 1 Hektar" /></div>
-                    </div>
-                    <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Target Pendanaan (Rp)</label><input required x-model="newLandFund" type="number" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 outline-none font-medium text-lg" placeholder="5000000" /></div>
-                    <div class="grid grid-cols-2 gap-5">
-                        <div class="col-span-2 md:col-span-1"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Foto Lahan Aktual</label><div class="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors cursor-pointer relative group"><input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" @change="newLandPhoto = $event.target.files[0]" accept="image/*" /><i data-lucide="camera" class="w-6 h-6 text-emerald-500 mx-auto mb-2 group-hover:scale-110 transition-transform"></i><span class="text-xs font-bold text-slate-600 block truncate px-2" x-text="newLandPhoto ? newLandPhoto.name : 'Unggah Foto (.jpg)'"></span></div></div>
-                        <div class="col-span-2 md:col-span-1"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Dokumen Legalitas</label><div class="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors cursor-pointer relative group"><input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" @change="newLandDocs = $event.target.files[0]" accept=".pdf,.jpg,.png" /><i data-lucide="file-text" class="w-6 h-6 text-indigo-500 mx-auto mb-2 group-hover:scale-110 transition-transform"></i><span class="text-xs font-bold text-slate-600 block truncate px-2" x-text="newLandDocs ? newLandDocs.name : 'Unggah SHM (.pdf)'"></span></div></div>
-                    </div>
-                    <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Deskripsi</label><textarea required x-model="newLandDesc" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none font-medium resize-none" placeholder="Ketik deskripsi kondisi lahan..."></textarea></div>
-                    <div class="pt-6 flex gap-4"><button type="button" @click="showAddLandModal = false" class="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors">Batal</button><button type="submit" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-colors shadow-xl">Publikasi Lahan</button></div>
-                </form>
-            </div>
+            <div class="bg-white rounded-[2.5rem] w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl p-8 custom-scrollbar"><div class="flex justify-between items-start mb-6"><div><h3 class="text-2xl font-black text-slate-800 mb-1">Daftarkan Lahan</h3><p class="text-sm text-slate-500 font-medium">Buka peluang pendanaan baru.</p></div><div class="p-3 bg-slate-100 rounded-2xl text-slate-500"><i data-lucide="map-pin" class="w-6 h-6"></i></div></div><div class="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-6"><div class="flex items-start gap-3"><i data-lucide="info" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i><div><h4 class="text-sm font-bold text-amber-800 mb-1">Syarat Verifikasi</h4><p class="text-xs text-amber-700/80 leading-relaxed font-medium">Siapkan foto lahan asli dan bukti legalitas (SHM/Girik) untuk keamanan investor.</p></div></div></div><form @submit.prevent="handleAddLand" class="space-y-5"><div class="grid grid-cols-2 gap-5"><div class="col-span-2 md:col-span-1"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Lokasi Lengkap</label><input required x-model="newLandLoc" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 outline-none font-medium" placeholder="Cth: Sukabumi" /></div><div class="col-span-2 md:col-span-1"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Luas Area</label><input required x-model="newLandSize" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 outline-none font-medium" placeholder="Cth: 1 Hektar" /></div></div><div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Target Pendanaan (Rp)</label><input required x-model="newLandFund" type="number" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 outline-none font-medium text-lg" placeholder="5000000" /></div><div class="grid grid-cols-2 gap-5"><div class="col-span-2 md:col-span-1"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Foto Lahan Aktual</label><div class="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors cursor-pointer relative group"><input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" @change="newLandPhoto = $event.target.files[0]" accept="image/*" /><i data-lucide="camera" class="w-6 h-6 text-emerald-500 mx-auto mb-2 group-hover:scale-110 transition-transform"></i><span class="text-xs font-bold text-slate-600 block truncate px-2" x-text="newLandPhoto ? newLandPhoto.name : 'Unggah Foto (.jpg)'"></span></div></div><div class="col-span-2 md:col-span-1"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Dokumen Legalitas</label><div class="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors cursor-pointer relative group"><input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" @change="newLandDocs = $event.target.files[0]" accept=".pdf,.jpg,.png" /><i data-lucide="file-text" class="w-6 h-6 text-indigo-500 mx-auto mb-2 group-hover:scale-110 transition-transform"></i><span class="text-xs font-bold text-slate-600 block truncate px-2" x-text="newLandDocs ? newLandDocs.name : 'Unggah SHM (.pdf)'"></span></div></div></div><div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Deskripsi</label><textarea required x-model="newLandDesc" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none font-medium resize-none" placeholder="Ketik deskripsi kondisi lahan..."></textarea></div><div class="pt-6 flex gap-4"><button type="button" @click="showAddLandModal = false" class="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors">Batal</button><button type="submit" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-colors shadow-xl">Publikasi Lahan</button></div></form></div>
         </div>
 
         <div x-show="showUpdateModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-            <div class="bg-white rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl">
-                <h3 class="text-2xl font-black text-slate-800 mb-2 flex items-center gap-3"><i data-lucide="camera" class="w-6 h-6 text-emerald-500"></i> Lapor Progres</h3>
-                <p class="text-sm text-slate-500 mb-8 font-medium">Beri tahu investor perkembangan lahan Anda.</p>
-                <form @submit.prevent="handleUpdateProgress">
-                    <div class="mb-6"><div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50 text-slate-400 hover:bg-slate-100 cursor-pointer transition-colors relative"><input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer"><i data-lucide="camera" class="w-10 h-10 mx-auto mb-3 opacity-40"></i><span class="text-sm font-bold">Upload Foto</span></div></div>
-                    <div class="mb-8"><label class="block text-sm font-bold text-slate-700 mb-2">Deskripsi Progress</label><textarea required rows="4" x-model="updateText" class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 outline-none resize-none" placeholder="Tulis perkembangan hari ini..."></textarea></div>
-                    <div class="flex gap-4"><button type="button" @click="showUpdateModal = false" class="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors">Batal</button><button type="submit" class="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-colors shadow-lg">Publikasi</button></div>
-                </form>
-            </div>
+            <div class="bg-white rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl"><h3 class="text-2xl font-black text-slate-800 mb-2 flex items-center gap-3"><i data-lucide="camera" class="w-6 h-6 text-emerald-500"></i> Lapor Progres Baru</h3><p class="text-sm text-slate-500 mb-8 font-medium">Beri tahu investor perkembangan lahan Anda.</p><form @submit.prevent="handleUpdateProgress"><div class="mb-6"><div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50 text-slate-400 hover:bg-slate-100 cursor-pointer transition-colors relative"><input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer"><i data-lucide="camera" class="w-10 h-10 mx-auto mb-3 opacity-40"></i><span class="text-sm font-bold">Upload Foto</span></div></div><div class="mb-8"><label class="block text-sm font-bold text-slate-700 mb-2">Deskripsi Progress</label><textarea required rows="4" x-model="updateText" class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 outline-none resize-none" placeholder="Tulis perkembangan hari ini..."></textarea></div><div class="flex gap-4"><button type="button" @click="showUpdateModal = false" class="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors">Batal</button><button type="submit" class="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-colors shadow-lg">Publikasi</button></div></form></div>
         </div>
     </div>
 </body>
